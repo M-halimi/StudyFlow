@@ -1,11 +1,9 @@
 "use server"
 
 import { hash } from "bcryptjs"
-import { signIn } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { AuthError } from "next-auth"
 import { z } from "zod"
-import { checkRateLimit, resetRateLimit } from "@/lib/rate-limit"
+import { checkRateLimit } from "@/lib/rate-limit"
 import { headers } from "next/headers"
 
 const registerSchema = z.object({
@@ -22,7 +20,7 @@ async function getClientIp(): Promise<string> {
   return forwarded?.split(",")[0]?.trim() ?? "unknown"
 }
 
-export async function register(prevState: unknown, formData: FormData) {
+export async function register(formData: FormData) {
   const ip = await getClientIp()
 
   if (!checkRateLimit(`register:${ip}`)) {
@@ -57,38 +55,6 @@ export async function register(prevState: unknown, formData: FormData) {
       settings: { create: {} },
     },
   })
-
-  try {
-    await signIn("credentials", { email, password, redirect: false })
-  } catch {
-    resetRateLimit(`register:${ip}`)
-    return { error: "Something went wrong. Please try again." }
-  }
-
-  return { success: true }
-}
-
-export async function login(prevState: unknown, formData: FormData) {
-  const email = formData.get("email") as string
-  const password = formData.get("password") as string
-  const ip = await getClientIp()
-
-  if (!checkRateLimit(`login:${ip}`)) {
-    return { error: "Too many attempts. Please try again later." }
-  }
-
-  try {
-    await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    })
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return { error: "Invalid email or password" }
-    }
-    return { error: "Something went wrong" }
-  }
 
   return { success: true }
 }

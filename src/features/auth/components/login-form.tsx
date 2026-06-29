@@ -1,9 +1,9 @@
 "use client"
 
-import { useActionState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { login } from "@/features/auth/actions/auth-actions"
+import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,13 +11,37 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 
 export function LoginForm() {
   const router = useRouter()
-  const [state, formAction, pending] = useActionState(login, undefined)
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
 
-  useEffect(() => {
-    if (state?.success) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setPending(true)
+    setError(null)
+
+    const form = new FormData(e.currentTarget)
+    const email = form.get("email") as string
+    const password = form.get("password") as string
+
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      })
+
+      if (result?.error) {
+        setError("Invalid email or password")
+        return
+      }
+
       router.push("/dashboard")
+    } catch {
+      setError("Something went wrong. Please try again.")
+    } finally {
+      setPending(false)
     }
-  }, [state?.success, router])
+  }
 
   return (
     <Card>
@@ -25,7 +49,7 @@ export function LoginForm() {
         <CardTitle className="text-xl">Welcome back</CardTitle>
         <CardDescription>Sign in to your StudyFlow account</CardDescription>
       </CardHeader>
-      <form action={formAction}>
+      <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
@@ -40,8 +64,8 @@ export function LoginForm() {
             </div>
             <Input id="password" name="password" type="password" required />
           </div>
-          {state?.error && (
-            <p className="text-sm text-[var(--danger)] bg-[var(--danger-bg)] rounded-xl p-3">{state.error}</p>
+          {error && (
+            <p className="text-sm text-[var(--danger)] bg-[var(--danger-bg)] rounded-xl p-3">{error}</p>
           )}
         </CardContent>
         <CardFooter className="flex flex-col gap-4">

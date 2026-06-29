@@ -1,8 +1,9 @@
 "use client"
 
-import { useActionState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { signIn } from "next-auth/react"
 import { register } from "@/features/auth/actions/auth-actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,13 +12,45 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 
 export function RegisterForm() {
   const router = useRouter()
-  const [state, formAction, pending] = useActionState(register, undefined)
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
 
-  useEffect(() => {
-    if (state?.success) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setPending(true)
+    setError(null)
+
+    const form = new FormData(e.currentTarget)
+
+    try {
+      const result = await register(form)
+
+      if (result?.error) {
+        setError(result.error)
+        return
+      }
+
+      const email = form.get("email") as string
+      const password = form.get("password") as string
+
+      const signInResult = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      })
+
+      if (signInResult?.error) {
+        setError("Account created. Please sign in.")
+        return
+      }
+
       router.push("/dashboard")
+    } catch {
+      setError("Something went wrong. Please try again.")
+    } finally {
+      setPending(false)
     }
-  }, [state?.success, router])
+  }
 
   return (
     <Card>
@@ -25,7 +58,7 @@ export function RegisterForm() {
         <CardTitle className="text-xl">Create an account</CardTitle>
         <CardDescription>Start your study journey with StudyFlow</CardDescription>
       </CardHeader>
-      <form action={formAction}>
+      <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
@@ -39,8 +72,8 @@ export function RegisterForm() {
             <Label htmlFor="password">Password</Label>
             <Input id="password" name="password" type="password" placeholder="At least 8 characters" required />
           </div>
-          {state?.error && (
-            <p className="text-sm text-[var(--danger)] bg-[var(--danger-bg)] rounded-xl p-3">{state.error}</p>
+          {error && (
+            <p className="text-sm text-[var(--danger)] bg-[var(--danger-bg)] rounded-xl p-3">{error}</p>
           )}
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
