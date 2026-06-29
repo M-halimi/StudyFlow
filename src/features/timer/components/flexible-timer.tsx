@@ -1,16 +1,26 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Play, Pause, Square, RotateCcw, BookOpen, Briefcase, Coffee, CupSoda } from "lucide-react"
-import { startSession, endSession, pauseSession, resumeSession } from "@/features/sessions/actions/session-actions"
+import { startSession, endSession, pauseSession, resumeSession, autoSaveSession } from "@/features/sessions/actions/session-actions"
 import { playSessionEndSound } from "@/lib/notification-sound"
 import { toast } from "sonner"
 import { motion } from "motion/react"
 
+interface InitialSession {
+  id: string
+  sessionType: string
+  topicId: string | null
+  plannedDuration: number
+  remainingTime: number
+  status: string
+}
+
 interface FlexibleTimerProps {
   topics?: { id: string; name: string; subjectName: string }[]
+  initialSession?: InitialSession | null
 }
 
 const PRESETS = [15, 30, 60, 90]
@@ -29,34 +39,69 @@ const TYPE_LABELS: Record<string, string> = {
   COFFEE: "Coffee time...",
 }
 
-export function FlexibleTimer({ topics = [] }: FlexibleTimerProps) {
-  const [duration, setDuration] = useState(30)
-  const [timeLeft, setTimeLeft] = useState(30 * 60)
+export function FlexibleTimer({ topics = [], initialSession }: FlexibleTimerProps) {
+  const initDur = initialSession?.plannedDuration || 30
+  const initRemaining = initialSession?.remainingTime ?? initDur * 60
+
+  const [duration, setDuration] = useState(initDur)
+  const [timeLeft, setTimeLeft] = useState(initRemaining)
   const [isRunning, setIsRunning] = useState(false)
-  const [hasStarted, setHasStarted] = useState(false)
-  const [sessionId, setSessionId] = useState<string | null>(null)
-  const [selectedTopic, setSelectedTopic] = useState("")
-  const [sessionType, setSessionType] = useState<string>("STUDY")
-  const [sessionTitle, setSessionTitle] = useState("")
-  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [hasStarted, setHasStarted] = useState(!!initialSession)
+  const [sessionId, setSessionId] = useState<string | null>(initialSession?.id ?? null)
+  const [selectedTopic, setSelectedTopic] = useState(initialSession?.topicId ?? "")
+  const [sessionType, setSessionType] = useState<string>(initialSession?.sessionType ?? "STUDY")
   const [notes, setNotes] = useState("")
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const autoSaveRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const sessionIdRef = useRef(sessionId)
-  const elapsedRef = useRef(elapsedSeconds)
+  const timeLeftRef = useRef(timeLeft)
   const notesRef = useRef(notes)
   const sessionTypeRef = useRef(sessionType)
+  const selectedTopicRef = useRef(selectedTopic)
+  const durationRef = useRef(duration)
 
   useEffect(() => { sessionIdRef.current = sessionId }, [sessionId])
-  useEffect(() => { elapsedRef.current = elapsedSeconds }, [elapsedSeconds])
+  useEffect(() => { timeLeftRef.current = timeLeft }, [timeLeft])
   useEffect(() => { notesRef.current = notes }, [notes])
   useEffect(() => { sessionTypeRef.current = sessionType }, [sessionType])
+  useEffect(() => { selectedTopicRef.current = selectedTopic }, [selectedTopic])
+  useEffect(() => { durationRef.current = duration }, [duration])
+
+  const saveToServer = useCallback(async (remainingSeconds: number) => {
+    const sid = sessionIdRef.current
+    if (!sid) return
+    try {
+      await autoSaveSession(sid, remainingSeconds)
+    } catch {
+    }
+  }, [])
+
+  const completeSession = useCallback(async (rt: number) => {
+    setIsRunning(false)
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    if (autoSaveRef.current) clearInterval(autoSaveRef.current)
+
+    const type = sessionTypeRef.current
+    playSessionEndSound(type as "STUDY" | "WORK" | "BREAK" | "COFFEE")
+
+    const sid = sessionIdRef.current
+    if (sid) {
+      await endSession(sid, rt, notesRef.current || undefined)
+      setSessionId(null)
+      toast.success(rt === 0 ? "Session complete!" : "Session saved")
+    }
+
+    setHasStarted(false)
+    setTimeLeft(durationRef.current * 60)
+    setNotes("")
+  }, [])
 
   function setNewDuration(minutes: number) {
     if (isRunning) return
     setDuration(minutes)
     setTimeLeft(minutes * 60)
     setHasStarted(false)
-    setElapsedSeconds(0)
   }
 
   async function handleStart() {
@@ -68,75 +113,46 @@ export function FlexibleTimer({ topics = [] }: FlexibleTimerProps) {
       return
     }
 
-    const result = await startSession(selectedTopic || undefined, sessionType, sessionTitle || undefined)
+    const result = await startSession(selectedTopic || undefined, sessionType, duration)
     setSessionId(result.id)
     setHasStarted(true)
     setIsRunning(true)
-    setSessionTitle("")
   }
 
   async function handlePause() {
     setIsRunning(false)
     if (sessionIdRef.current) {
-      await pauseSession(sessionIdRef.current)
+      await pauseSession(sessionIdRef.current, timeLeftRef.current)
     }
-  }
-
-  function playEndSound() {
-    const type = sessionTypeRef.current
-    playSessionEndSound(type as "STUDY" | "WORK" | "BREAK" | "COFFEE")
   }
 
   async function handleStop() {
-    setIsRunning(false)
-    if (intervalRef.current) clearInterval(intervalRef.current)
-
-    playEndSound()
-
-    if (sessionIdRef.current) {
-      const actualMinutes = Math.max(1, Math.round(elapsedRef.current / 60))
-      await endSession(sessionIdRef.current, actualMinutes, notesRef.current || undefined)
-      setSessionId(null)
-      toast.success("Session saved")
-    }
-
-    setHasStarted(false)
-    setTimeLeft(duration * 60)
-    setElapsedSeconds(0)
-    setNotes("")
+    await saveToServer(timeLeftRef.current)
+    await completeSession(timeLeftRef.current)
   }
 
-  function handleReset() {
+  async function handleReset() {
+    const sid = sessionIdRef.current
+    if (sid) {
+      await saveToServer(timeLeftRef.current)
+      await endSession(sid, timeLeftRef.current, notesRef.current || undefined).catch(() => {})
+    }
     setIsRunning(false)
     if (intervalRef.current) clearInterval(intervalRef.current)
+    if (autoSaveRef.current) clearInterval(autoSaveRef.current)
     setHasStarted(false)
     setTimeLeft(duration * 60)
-    setElapsedSeconds(0)
     setSessionId(null)
     setNotes("")
   }
 
   async function handleComplete() {
-    setIsRunning(false)
-    if (intervalRef.current) clearInterval(intervalRef.current)
-
-    playEndSound()
-
-    if (sessionIdRef.current) {
-      const actualMinutes = Math.max(1, Math.round(elapsedRef.current / 60))
-      await endSession(sessionIdRef.current, actualMinutes, notesRef.current || undefined)
-      setSessionId(null)
-      toast.success("Session complete!")
-    }
-
-    setHasStarted(false)
-    setTimeLeft(duration * 60)
-    setElapsedSeconds(0)
-    setNotes("")
+    await completeSession(0)
   }
 
   useEffect(() => {
     if (!isRunning) return
+
     intervalRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -146,16 +162,43 @@ export function FlexibleTimer({ topics = [] }: FlexibleTimerProps) {
         }
         return prev - 1
       })
-      setElapsedSeconds((prev) => prev + 1)
     }, 1000)
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+
+    autoSaveRef.current = setInterval(() => {
+      const sid = sessionIdRef.current
+      const tl = timeLeftRef.current
+      if (sid && tl > 0) {
+        autoSaveSession(sid, tl).catch(() => {})
+      }
+    }, 5000)
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      if (autoSaveRef.current) clearInterval(autoSaveRef.current)
+    }
   }, [isRunning]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const sid = sessionIdRef.current
+      const tl = timeLeftRef.current
+      if (sid && isRunning) {
+        navigator.sendBeacon("/api/sessions/auto-save", JSON.stringify({ id: sid, remainingTime: tl }))
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [isRunning])
 
   const minutes = Math.floor(timeLeft / 60)
   const seconds = timeLeft % 60
   const totalSeconds = duration * 60
   const progress = totalSeconds > 0 ? 1 - timeLeft / totalSeconds : 0
   const statusText = !hasStarted ? "Ready" : isRunning ? (TYPE_LABELS[sessionType] ?? "Studying...") : "Paused"
+
+  const circleRadius = 130
+  const circumference = 2 * Math.PI * circleRadius
+  const strokeDashoffset = circumference * (1 - progress)
 
   return (
     <div className="flex flex-col items-center space-y-6">
@@ -186,28 +229,15 @@ export function FlexibleTimer({ topics = [] }: FlexibleTimerProps) {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-[var(--fg)]">Title (optional)</label>
+            <label className="text-sm font-medium text-[var(--fg)]">Duration (minutes)</label>
             <Input
-              type="text"
-              value={sessionTitle}
-              onChange={(e) => setSessionTitle(e.target.value)}
-              placeholder="e.g. Math review, Chapter 5..."
-              className="text-center"
+              type="number"
+              min={1}
+              max={480}
+              value={duration}
+              onChange={(e) => setNewDuration(Math.max(1, parseInt(e.target.value) || 1))}
+              className="text-center text-lg font-medium"
             />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-[var(--fg)]">Study Duration (minutes)</label>
-            <div className="flex gap-2">
-              <Input
-                type="number"
-                min={1}
-                max={480}
-                value={duration}
-                onChange={(e) => setNewDuration(Math.max(1, parseInt(e.target.value) || 1))}
-                className="text-center text-lg font-medium"
-              />
-            </div>
           </div>
 
           <div className="flex gap-2 justify-center">
@@ -241,23 +271,18 @@ export function FlexibleTimer({ topics = [] }: FlexibleTimerProps) {
               </select>
             </div>
           )}
+
+          {initialSession && (
+            <div className="rounded-xl bg-[var(--surface)] border border-[var(--border)] p-3 text-center">
+              <p className="text-sm font-medium text-[var(--fg)]">Resume previous session</p>
+              <p className="text-xs text-[var(--muted)] mt-0.5">
+                {initialSession.status === "PAUSED" ? "You have a paused session" : "Session was still active"}
+              </p>
+            </div>
+          )}
         </div>
       ) : (
-        <div className="w-full max-w-md space-y-2">
-          <div className="relative h-3 w-full overflow-hidden rounded-full bg-[var(--secondary)]">
-            <motion.div
-              className="h-full rounded-full bg-[var(--primary)]"
-              initial={{ width: "0%" }}
-              animate={{ width: `${progress * 100}%` }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-            />
-          </div>
-
-          <div className="flex items-center justify-between text-xs text-[var(--muted)]">
-            <span>{Math.round(progress * 100)}%</span>
-            <span>{duration} min</span>
-          </div>
-
+        <div className="w-full max-w-md space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-[var(--fg)]">Notes (optional)</label>
             <textarea
@@ -272,13 +297,42 @@ export function FlexibleTimer({ topics = [] }: FlexibleTimerProps) {
         </div>
       )}
 
-      <div className="flex flex-col items-center gap-3">
-        <div className="flex items-baseline gap-1">
-          <motion.span key={timeLeft} className="text-7xl font-bold tabular-nums text-[var(--fg)]">
+      <div className="relative flex items-center justify-center">
+        <svg width="300" height="300" className="-rotate-90">
+          <circle
+            cx="150" cy="150" r={circleRadius}
+            fill="none"
+            stroke="var(--secondary)"
+            strokeWidth="6"
+          />
+          {hasStarted && (
+            <motion.circle
+              cx="150" cy="150" r={circleRadius}
+              fill="none"
+              stroke={
+                !isRunning ? "var(--muted)" :
+                sessionType === "WORK" ? "var(--warning)" :
+                sessionType === "BREAK" ? "var(--success)" :
+                sessionType === "COFFEE" ? "var(--danger)" :
+                "var(--primary)"
+              }
+              strokeWidth="6"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+              className={!isRunning ? "opacity-50" : ""}
+              initial={false}
+              animate={{ strokeDashoffset }}
+              transition={{ duration: 1, ease: "linear" }}
+            />
+          )}
+        </svg>
+        <div className="absolute flex flex-col items-center">
+          <motion.span key={timeLeft} className="text-6xl font-bold tabular-nums text-[var(--fg)]">
             {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
           </motion.span>
+          <span className="text-sm text-[var(--muted)] mt-1">{statusText}</span>
         </div>
-        <span className="text-sm text-[var(--muted)]">{statusText}</span>
       </div>
 
       <div className="flex items-center gap-3">

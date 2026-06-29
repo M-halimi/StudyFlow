@@ -6,15 +6,23 @@ import { revalidatePath } from "next/cache"
 import { formatDistanceToNow } from "date-fns"
 import { createNotification } from "@/features/notifications/actions/notification-actions"
 
-export async function startSession(topicId?: string, sessionType?: string, title?: string) {
+export async function startSession(topicId?: string, sessionType?: string, plannedDuration?: number) {
   const { userId } = await verifySession()
+  const duration = plannedDuration || 30
+
+  const topicName = topicId
+    ? await prisma.topic.findUnique({ where: { id: topicId }, select: { name: true } })
+    : null
+  const title = topicName ? `${topicName.name} Session` : ""
 
   const session = await prisma.studySession.create({
     data: {
       userId,
       topicId: topicId || null,
       sessionType: (sessionType as any) || "STUDY",
-      title: title || "",
+      title,
+      plannedDuration: duration,
+      remainingTime: duration * 60,
       startTime: new Date(),
       status: "ACTIVE",
     },
@@ -25,15 +33,24 @@ export async function startSession(topicId?: string, sessionType?: string, title
   return { id: session.id, sessionType: session.sessionType }
 }
 
-export async function endSession(id: string, totalMinutes: number, notes?: string) {
+export async function endSession(id: string, remainingTime: number, notes?: string) {
   await verifySession()
 
-  const session = await prisma.studySession.update({
+  const session = await prisma.studySession.findUnique({
+    where: { id },
+    select: { plannedDuration: true, userId: true, sessionType: true, topicId: true },
+  })
+  if (!session) return
+
+  const elapsedMinutes = Math.max(1, session.plannedDuration - Math.round(remainingTime / 60))
+
+  await prisma.studySession.update({
     where: { id },
     data: {
       status: "COMPLETED",
       endTime: new Date(),
-      totalMinutes,
+      remainingTime,
+      totalMinutes: elapsedMinutes,
       notes: notes || null,
     },
   })
@@ -75,8 +92,8 @@ export async function endSession(id: string, totalMinutes: number, notes?: strin
     )
   }
 
-  const hours = Math.floor(totalMinutes / 60)
-  const mins = Math.round(totalMinutes % 60)
+  const hours = Math.floor(elapsedMinutes / 60)
+  const mins = Math.round(elapsedMinutes % 60)
   const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`
   const typeLabel = session.sessionType === "WORK" ? "Work" :
     session.sessionType === "BREAK" ? "Break" :
@@ -94,15 +111,24 @@ export async function endSession(id: string, totalMinutes: number, notes?: strin
   revalidatePath("/dashboard")
 }
 
-export async function pauseSession(id: string) {
+export async function pauseSession(id: string, remainingTime: number) {
   await verifySession()
 
   await prisma.studySession.update({
     where: { id },
-    data: { status: "PAUSED" },
+    data: { status: "PAUSED", remainingTime },
   })
 
   revalidatePath("/timer")
+}
+
+export async function autoSaveSession(id: string, remainingTime: number) {
+  await verifySession().catch(() => null)
+
+  await prisma.studySession.update({
+    where: { id },
+    data: { remainingTime },
+  })
 }
 
 export async function resumeSession(id: string) {
@@ -121,17 +147,24 @@ export async function duplicateSession(id: string) {
 
   const original = await prisma.studySession.findUnique({
     where: { id },
-    select: { topicId: true, sessionType: true, title: true, totalMinutes: true },
+    select: { topicId: true, sessionType: true, title: true, totalMinutes: true, plannedDuration: true, remainingTime: true },
   })
 
   if (!original || !original.totalMinutes) return
+
+  const topicName = original.topicId
+    ? await prisma.topic.findUnique({ where: { id: original.topicId }, select: { name: true } })
+    : null
+  const baseTitle = topicName ? `${topicName.name} Session` : "Untitled"
 
   await prisma.studySession.create({
     data: {
       userId,
       topicId: original.topicId,
       sessionType: original.sessionType,
-      title: `${original.title || "Session"} (copy)`,
+      title: `${baseTitle} (copy)`,
+      plannedDuration: original.plannedDuration,
+      remainingTime: original.remainingTime,
       startTime: new Date(),
       status: "ACTIVE",
     },
@@ -149,7 +182,14 @@ export async function getActiveSession() {
       userId: user.userId,
       status: { in: ["ACTIVE", "PAUSED"] },
     },
-    include: {
+    select: {
+      id: true,
+      sessionType: true,
+      topicId: true,
+      plannedDuration: true,
+      remainingTime: true,
+      totalMinutes: true,
+      status: true,
       topic: {
         select: {
           name: true,

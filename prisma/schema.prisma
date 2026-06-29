@@ -255,6 +255,8 @@ model StudySession {
   topicId    String?
   sessionType SessionType      @default(STUDY)
   title       String           @default("")
+  plannedDuration Int          @default(0)
+  remainingTime Int            @default(0)
   startTime  DateTime
   endTime    DateTime?
   totalMinutes Int?
