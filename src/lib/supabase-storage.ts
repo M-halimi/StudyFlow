@@ -1,6 +1,7 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { prisma } from "@/lib/prisma"
+import { verifySession } from "@/lib/dal"
 
 const BUCKET_NAME = "attachments"
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
@@ -16,6 +17,8 @@ export async function uploadAttachment(
   topicId: string,
   file: File
 ): Promise<UploadResult> {
+  const { userId } = await verifySession()
+
   if (file.size > MAX_FILE_SIZE) {
     throw new Error(`File size exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit`)
   }
@@ -23,7 +26,7 @@ export async function uploadAttachment(
   const supabase = createAdminClient()
   const bytes = await file.arrayBuffer()
   const buffer = new Uint8Array(bytes)
-  const filePath = `${topicId}/${crypto.randomUUID()}-${file.name}`
+  const filePath = `${userId}/${topicId}/${crypto.randomUUID()}-${file.name}`
 
   const { data, error } = await supabase.storage
     .from(BUCKET_NAME)
@@ -59,18 +62,23 @@ export async function uploadAttachment(
 }
 
 export async function deleteAttachment(attachmentId: string): Promise<void> {
+  const { userId } = await verifySession()
   const supabase = createAdminClient()
 
   const attachment = await prisma.attachment.findUnique({
     where: { id: attachmentId },
-    select: { url: true },
+    select: { url: true, topic: { select: { category: { select: { subject: { select: { userId: true } } } } } } },
   })
 
   if (!attachment) {
     throw new Error("Attachment not found")
   }
 
-  const filePath = attachment.url.split("/").slice(-2).join("/")
+  if (attachment.topic.category.subject.userId !== userId) {
+    throw new Error("Unauthorized")
+  }
+
+  const filePath = attachment.url.split("/").slice(-3).join("/")
 
   const { error } = await supabase.storage
     .from(BUCKET_NAME)
@@ -113,3 +121,4 @@ export async function ensureBucketExists(): Promise<void> {
     }
   }
 }
+

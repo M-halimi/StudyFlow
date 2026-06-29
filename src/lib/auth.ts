@@ -3,10 +3,16 @@ import Credentials from "next-auth/providers/credentials"
 import { compare } from "bcryptjs"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
+import "server-only"
+
+const SEVEN_DAYS = 7 * 24 * 60 * 60
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    maxAge: SEVEN_DAYS,
+  },
   pages: {
     signIn: "/login",
   },

@@ -5,6 +5,16 @@ import { verifySession } from "@/lib/dal"
 import { revalidatePath } from "next/cache"
 import { formatDistanceToNow } from "date-fns"
 import { createNotification } from "@/features/notifications/actions/notification-actions"
+import type { SessionType } from "@/generated/prisma/enums"
+
+const VALID_SESSION_TYPES = new Set<string>(["STUDY", "WORK", "BREAK", "COFFEE"])
+
+function validateSessionType(value?: string): SessionType {
+  if (value && VALID_SESSION_TYPES.has(value)) {
+    return value as SessionType
+  }
+  return "STUDY" as SessionType
+}
 
 export async function startSession(topicId?: string, sessionType?: string, plannedDuration?: number) {
   const { userId } = await verifySession()
@@ -19,7 +29,7 @@ export async function startSession(topicId?: string, sessionType?: string, plann
     data: {
       userId,
       topicId: topicId || null,
-      sessionType: (sessionType as any) || "STUDY",
+      sessionType: validateSessionType(sessionType),
       title,
       plannedDuration: duration,
       remainingTime: duration * 60,
