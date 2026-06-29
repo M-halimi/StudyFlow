@@ -5,10 +5,11 @@ import { DashboardStats } from "@/features/dashboard/components/dashboard-stats"
 import { RecentActivity } from "@/features/dashboard/components/recent-activity"
 import { TodayTasks } from "@/features/dashboard/components/today-tasks"
 import { UpcomingRevisions } from "@/features/dashboard/components/upcoming-revisions"
+import { Greeting } from "@/components/shared/greeting"
 import { Sparkles } from "lucide-react"
 
 export default async function DashboardPage() {
-  const { userId } = await verifySession()
+  const { userId, user } = await verifySession()
   const now = new Date()
 
   const sessionDates = await prisma.studySession.findMany({
@@ -103,8 +104,8 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--fg)]">Dashboard</h1>
-          <p className="text-sm text-[var(--muted)]">Here&apos;s your study overview for today</p>
+          <Greeting name={user?.name ?? undefined} className="text-2xl font-bold text-[var(--fg)]" />
+          <p className="text-sm text-[var(--muted)] pt-1">Here&apos;s your study overview for today</p>
         </div>
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--primary)]/10">
           <Sparkles className="h-5 w-5 text-[var(--primary)]" />
