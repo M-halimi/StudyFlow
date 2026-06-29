@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  --bg: #faf9f8;
+  --fg: #1a1a2e;
+  --primary: #6366f1;
+  --primary-fg: #ffffff;
+  --primary-hover: #5558e6;
+  --secondary: #f1f0ef;
+  --secondary-fg: #1a1a2e;
+  --accent: #8b5cf6;
+  --accent-fg: #ffffff;
+  --success: #10b981;
+  --success-bg: #ecfdf5;
+  --warning: #f59e0b;
+  --warning-bg: #fffbeb;
+  --danger: #ef4444;
+  --danger-bg: #fef2f2;
+  --info: #3b82f6;
+  --info-bg: #eff6ff;
+  --surface: #ffffff;
+  --surface-hover: #f3f2f2;
+  --surface-elevated: #ffffff;
+  --border: #e6e4e2;
+  --border-light: #f0efee;
+  --muted: #8a8a9a;
+  --muted-fg: #6b6b7b;
+  --ring: #d1d0cf;
+  --overlay: rgba(0, 0, 0, 0.35);
+  --sidebar: #ffffff;
+  --sidebar-fg: #1a1a2e;
+  --sidebar-border: #f0efee;
+  --navbar: rgba(250, 249, 248, 0.8);
+}
+
+.dark {
+  --bg: #0f0f13;
+  --fg: #ededee;
+  --primary: #6366f1;
+  --primary-fg: #ffffff;
+  --primary-hover: #7577f3;
+  --secondary: #1c1c23;
+  --secondary-fg: #ededee;
+  --accent: #a78bfa;
+  --accent-fg: #ffffff;
+  --success: #34d399;
+  --success-bg: #052e16;
+  --warning: #fbbf24;
+  --warning-bg: #451a03;
+  --danger: #f87171;
+  --danger-bg: #450a0a;
+  --info: #60a5fa;
+  --info-bg: #172554;
+  --surface: #16161c;
+  --surface-hover: #1e1e26;
+  --surface-elevated: #1e1e26;
+  --border: #26262e;
+  --border-light: #1e1e26;
+  --muted: #6b6b7b;
+  --muted-fg: #8a8a9a;
+  --ring: #2e2e36;
+  --overlay: rgba(0, 0, 0, 0.6);
+  --sidebar: #121218;
+  --sidebar-fg: #ededee;
+  --sidebar-border: #1e1e26;
+  --navbar: rgba(15, 15, 19, 0.8);
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+::selection {
+  background: rgb(99 102 241 / 0.2);
+}
+
+.dark ::selection {
+  background: rgb(167 139 250 / 0.3);
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
