@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -14,12 +13,10 @@ import {
   Timer,
   BarChart3,
   Target,
-  Trophy,
   FileText,
   Search,
   Settings,
   LogOut,
-  BookMarked,
   PanelLeftClose,
   PanelLeft,
   X,
@@ -33,9 +30,7 @@ const navItems = [
   { href: "/timer", label: "Focus Timer", icon: Timer },
   { href: "/statistics", label: "Statistics", icon: BarChart3 },
   { href: "/goals", label: "Goals", icon: Target },
-  { href: "/achievements", label: "Achievements", icon: Trophy },
   { href: "/journal", label: "Journal", icon: FileText },
-  { href: "/templates", label: "Templates", icon: BookMarked },
 ]
 
 const bottomItems = [

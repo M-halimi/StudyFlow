@@ -11,6 +11,8 @@ const settingsSchema = z.object({
   longBreakDuration: z.coerce.number().min(1, { error: "Must be at least 1" }).max(60, { error: "Must be at most 60" }),
   dailyGoalMinutes: z.coerce.number().min(1, { error: "Must be at least 1" }).max(480, { error: "Must be at most 480" }),
   weeklyGoalDays: z.coerce.number().min(1, { error: "Must be at least 1" }).max(7, { error: "Must be at most 7" }),
+  notificationEnabled: z.coerce.boolean().optional(),
+  soundMode: z.enum(["off", "important", "all"]).optional(),
 })
 
 export async function updateSettings(formData: FormData) {
@@ -22,6 +24,8 @@ export async function updateSettings(formData: FormData) {
     longBreakDuration: formData.get("longBreakDuration"),
     dailyGoalMinutes: formData.get("dailyGoalMinutes"),
     weeklyGoalDays: formData.get("weeklyGoalDays"),
+    notificationEnabled: formData.get("notificationEnabled") === "on",
+    soundMode: formData.get("soundMode") || "important",
   })
 
   if (!validated.success) {

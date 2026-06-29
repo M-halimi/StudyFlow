@@ -15,6 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Plus } from "lucide-react"
+import { toast } from "sonner"
 
 interface CategoryFormProps {
   subjectId: string
@@ -44,7 +45,7 @@ export function CategoryForm({
     try {
       const result = await action(formData)
       if (result?.error) { setError(result.error); setPending(false) }
-      else { setOpen(false) }
+      else { toast.success(mode === "create" ? "Category created" : "Category updated"); setOpen(false) }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
       setPending(false)

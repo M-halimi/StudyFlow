@@ -1,6 +1,6 @@
 import { verifySession } from "@/lib/dal"
 import { prisma } from "@/lib/prisma"
-import { startOfDay, startOfWeek, startOfMonth, endOfDay, endOfWeek, endOfMonth } from "date-fns"
+import { startOfDay, startOfWeek, startOfMonth, endOfDay, endOfWeek, endOfMonth, subDays } from "date-fns"
 import { DashboardStats } from "@/features/dashboard/components/dashboard-stats"
 import { RecentActivity } from "@/features/dashboard/components/recent-activity"
 import { TodayTasks } from "@/features/dashboard/components/today-tasks"
@@ -10,6 +10,32 @@ import { Sparkles } from "lucide-react"
 export default async function DashboardPage() {
   const { userId } = await verifySession()
   const now = new Date()
+
+  const sessionDates = await prisma.studySession.findMany({
+    where: { userId, status: "COMPLETED" },
+    select: { startTime: true },
+    orderBy: { startTime: "desc" },
+  })
+
+  const uniqueDays = new Set<string>()
+  for (const s of sessionDates) {
+    const d = startOfDay(s.startTime).toISOString()
+    uniqueDays.add(d)
+  }
+  const sortedDays = Array.from(uniqueDays).sort().reverse()
+  let streak = 0
+  const today = startOfDay(now).toISOString()
+  if (sortedDays[0] === today) {
+    streak = 1
+    for (let i = 1; i < sortedDays.length; i++) {
+      const expected = startOfDay(subDays(now, i)).toISOString()
+      if (sortedDays[i] === expected) {
+        streak++
+      } else {
+        break
+      }
+    }
+  }
 
   const [totalSessions, todaySessions, weeklySessions, monthlySessions, subjects, tasks, revisions, goals] = await Promise.all([
     prisma.studySession.aggregate({
@@ -70,6 +96,7 @@ export default async function DashboardPage() {
     pendingTasks: tasks,
     pendingRevisions: revisions,
     activeGoals: goals,
+    streak,
   }
 
   return (

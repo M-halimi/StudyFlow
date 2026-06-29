@@ -15,6 +15,7 @@ interface StatsProps {
     pendingTasks: number
     pendingRevisions: number
     activeGoals: number
+    streak: number
   }
 }
 
@@ -27,7 +28,7 @@ export function DashboardStats({ stats }: StatsProps) {
     { title: "Pending Tasks", value: String(stats.pendingTasks), icon: ListChecks, sub: "tasks to complete", color: "var(--danger)" },
     { title: "Upcoming Revisions", value: String(stats.pendingRevisions), icon: BookOpen, sub: "revisions due", color: "var(--accent)" },
     { title: "Active Goals", value: String(stats.activeGoals), icon: Target, sub: "in progress", color: "var(--success)" },
-    { title: "Subjects", value: String(stats.subjects), icon: Zap, sub: "created", color: "var(--primary)" },
+    { title: "Day Streak", value: `${stats.streak} ${stats.streak === 1 ? "day" : "days"}`, icon: Zap, sub: "consecutive study days", color: "var(--primary)" },
   ]
 
   return (

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { createTask } from "@/features/planner/actions/planner-actions"
+import { updateTask } from "@/features/planner/actions/planner-actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -21,17 +21,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Plus } from "lucide-react"
+import { Pencil } from "lucide-react"
 import { toast } from "sonner"
 
-interface TaskFormProps {
+interface TaskEditFormProps {
+  task: {
+    id: string
+    title: string
+    description: string | null
+    subjectId: string | null
+    priority: string
+    dueDate: Date | null
+    estimatedMinutes: number | null
+  }
   subjects: { id: string; name: string; color: string }[]
 }
 
-export function TaskForm({ subjects }: TaskFormProps) {
+export function TaskEditForm({ task, subjects }: TaskEditFormProps) {
   const [open, setOpen] = useState(false)
-  const [priority, setPriority] = useState("MEDIUM")
-  const [subjectId, setSubjectId] = useState("")
+  const [priority, setPriority] = useState(task.priority)
+  const [subjectId, setSubjectId] = useState(task.subjectId ?? "")
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -40,33 +49,36 @@ export function TaskForm({ subjects }: TaskFormProps) {
     setPending(true)
     setError(null)
     const formData = new FormData(e.currentTarget)
-    const result = await createTask(formData)
+    const result = await updateTask(task.id, formData)
     if (result?.error) { setError(result.error); setPending(false) }
-    else { toast.success("Task created"); setOpen(false) }
+    else { toast.success("Task updated"); setOpen(false) }
   }
+
+  const dueDateStr = task.dueDate
+    ? new Date(task.dueDate).toISOString().split("T")[0]
+    : ""
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          New Task
-        </Button>
+        <button className="rounded-lg p-1.5 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-hover)] transition-colors">
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create Task</DialogTitle>
-          <DialogDescription>Add a new task to your planner</DialogDescription>
+          <DialogTitle>Edit Task</DialogTitle>
+          <DialogDescription>Update your task details</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="title">Title</Label>
-              <Input id="title" name="title" placeholder="What do you need to study?" required />
+              <Input id="title" name="title" defaultValue={task.title} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              <Input id="description" name="description" placeholder="Optional details" />
+              <Input id="description" name="description" defaultValue={task.description ?? ""} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -100,11 +112,11 @@ export function TaskForm({ subjects }: TaskFormProps) {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="estimatedMinutes">Est. time (min)</Label>
-                <Input id="estimatedMinutes" name="estimatedMinutes" type="number" placeholder="30" />
+                <Input id="estimatedMinutes" name="estimatedMinutes" type="number" defaultValue={task.estimatedMinutes ?? ""} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="dueDate">Due date</Label>
-                <Input id="dueDate" name="dueDate" type="date" />
+                <Input id="dueDate" name="dueDate" type="date" defaultValue={dueDateStr} />
               </div>
             </div>
             {error && <p className="text-sm text-[var(--danger)] bg-[var(--danger-bg)] rounded-xl p-3">{error}</p>}
@@ -112,7 +124,7 @@ export function TaskForm({ subjects }: TaskFormProps) {
           <DialogFooter className="mt-6">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button type="submit" disabled={pending}>
-              {pending ? "Creating..." : "Create"}
+              {pending ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </form>

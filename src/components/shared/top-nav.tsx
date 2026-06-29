@@ -14,7 +14,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
-  Bell,
   Search,
   Sun,
   Moon,
@@ -22,6 +21,7 @@ import {
   Menu,
 } from "lucide-react"
 import { useMemo } from "react"
+import { NotificationDropdown } from "@/features/notifications/components/notification-dropdown"
 
 const breadcrumbMap: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -30,9 +30,7 @@ const breadcrumbMap: Record<string, string> = {
   "/timer": "Focus Timer",
   "/statistics": "Statistics",
   "/goals": "Goals",
-  "/achievements": "Achievements",
   "/journal": "Journal",
-  "/templates": "Templates",
   "/search": "Search",
   "/settings": "Settings",
 }
@@ -78,9 +76,7 @@ export function TopNav() {
           </Button>
         </Link>
 
-        <Button variant="ghost" size="icon-sm" className="text-[var(--muted)]">
-          <Bell className="h-4 w-4" />
-        </Button>
+        <NotificationDropdown />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

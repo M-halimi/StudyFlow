@@ -29,8 +29,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { PaginationControls } from "@/components/shared/pagination-controls"
 import { GripVertical, Trash2, Clock, ListChecks } from "lucide-react"
 import { TaskForm } from "./task-form"
+import { TaskEditForm } from "./task-edit-form"
 import { updateTaskStatus, reorderTasks, deleteTask } from "@/features/planner/actions/planner-actions"
 import { formatDuration } from "@/lib/utils"
 import { EmptyState } from "@/components/shared/empty-state"
@@ -41,6 +43,7 @@ interface Task {
   id: string
   title: string
   description: string | null
+  subjectId: string | null
   estimatedMinutes: number | null
   priority: string
   status: string
@@ -55,7 +58,7 @@ interface PlannerClientProps {
   subjects: { id: string; name: string; color: string }[]
 }
 
-function SortableTask({ task }: { task: Task }) {
+function SortableTask({ task, subjects }: { task: Task; subjects: { id: string; name: string; color: string }[] }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id })
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -108,6 +111,7 @@ function SortableTask({ task }: { task: Task }) {
         </div>
       </div>
       <div className="flex items-center gap-1">
+        <TaskEditForm task={task} subjects={subjects} />
         <select
           value={task.status}
           onChange={(e) => updateTaskStatus(task.id, e.target.value)}
@@ -145,8 +149,14 @@ function SortableTask({ task }: { task: Task }) {
   )
 }
 
+const PAGE_SIZE = 20
+
 export function PlannerClient({ tasks, subjects }: PlannerClientProps) {
   const [items, setItems] = useState(tasks)
+  const [page, setPage] = useState(1)
+
+  const totalPages = Math.ceil(items.length / PAGE_SIZE)
+  const paginatedItems = items.slice(0, page * PAGE_SIZE)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -187,20 +197,21 @@ export function PlannerClient({ tasks, subjects }: PlannerClientProps) {
                   action={<TaskForm subjects={subjects} />}
                 />
               ) : (
-                items.map((task) => (
+                paginatedItems.map((task) => (
                   <motion.div
                     key={task.id}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <SortableTask task={task} />
+                    <SortableTask task={task} subjects={subjects} />
                   </motion.div>
                 ))
               )}
             </div>
           </SortableContext>
         </DndContext>
+        <PaginationControls currentPage={page} totalPages={totalPages} onPageChange={setPage} />
       </div>
     </PageTransition>
   )

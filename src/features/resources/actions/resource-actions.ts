@@ -50,6 +50,66 @@ export async function createResource(topicId: string, formData: FormData) {
   }
 }
 
+export async function updateResource(id: string, formData: FormData) {
+  try {
+    await verifySession()
+
+    const validated = resourceSchema.safeParse({
+      title: formData.get("title"),
+      url: formData.get("url"),
+      type: formData.get("type"),
+      description: formData.get("description"),
+    })
+
+    if (!validated.success) {
+      return { error: validated.error.issues[0]?.message ?? "Invalid input" }
+    }
+
+    const resource = await prisma.resource.findUnique({
+      where: { id },
+      include: { topic: { include: { category: { select: { subjectId: true } } } } },
+    })
+    if (!resource) return { error: "Resource not found" }
+
+    await prisma.resource.update({
+      where: { id },
+      data: {
+        title: validated.data.title,
+        url: validated.data.url,
+        type: validated.data.type as any,
+        description: validated.data.description,
+      },
+    })
+
+    revalidatePath(`/subjects/${resource.topic.category.subjectId}/categories/${resource.topic.categoryId}/topics/${resource.topicId}`)
+  } catch (err) {
+    console.error("updateResource error:", err)
+    return { error: err instanceof Error ? err.message : "Failed to update resource" }
+  }
+}
+
+export async function toggleResourceCompleted(id: string, completed: boolean) {
+  try {
+    await verifySession()
+
+    const resource = await prisma.resource.findUnique({
+      where: { id },
+      include: { topic: { include: { category: { select: { subjectId: true } } } } },
+    })
+    if (!resource) return { error: "Resource not found" }
+
+    await prisma.resource.update({
+      where: { id },
+      data: { completed },
+    })
+
+    revalidatePath(`/subjects/${resource.topic.category.subjectId}/categories/${resource.topic.categoryId}/topics/${resource.topicId}`)
+  } catch (err) {
+    console.error("toggleResource error:", err)
+    return { error: err instanceof Error ? err.message : "Failed to update resource" }
+  }
+}
+
 export async function deleteResource(id: string) {
   await verifySession()
 

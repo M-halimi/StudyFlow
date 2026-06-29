@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Plus } from "lucide-react"
+import { toast } from "sonner"
 
 interface TopicFormProps {
   categoryId: string
@@ -67,6 +68,7 @@ export function TopicForm({
         setError(result.error)
         setPending(false)
       } else {
+        toast.success(mode === "create" ? "Topic created" : "Topic updated")
         setOpen(false)
       }
     } catch (err) {

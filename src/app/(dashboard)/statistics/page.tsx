@@ -5,9 +5,31 @@ import { PageTransition } from "@/components/shared/page-transition"
 import { EmptyState } from "@/components/shared/empty-state"
 import { Clock, Layers, ListChecks, BookOpen, BarChart3, BrainCircuit } from "lucide-react"
 import { formatDuration, formatRelativeTime } from "@/lib/utils"
+import { subDays, startOfDay, endOfDay } from "date-fns"
+import { DailyChart } from "./daily-chart"
 
 export default async function StatisticsPage() {
   const { userId } = await verifySession()
+
+  const today = new Date()
+  const last7Days = Array.from({ length: 7 }, (_, i) => subDays(today, 6 - i))
+
+  const dailyData = await Promise.all(
+    last7Days.map(async (day) => {
+      const agg = await prisma.studySession.aggregate({
+        where: {
+          userId,
+          status: "COMPLETED",
+          startTime: { gte: startOfDay(day), lte: endOfDay(day) },
+        },
+        _sum: { totalMinutes: true },
+      })
+      return {
+        date: day.toLocaleDateString("en-US", { weekday: "short" }),
+        minutes: agg._sum.totalMinutes ?? 0,
+      }
+    })
+  )
 
   const [totalSessions, taskCounts, subjects, topicStatuses, recentSessions] = await Promise.all([
     prisma.studySession.aggregate({
@@ -85,6 +107,22 @@ export default async function StatisticsPage() {
             )
           })}
         </div>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-[var(--muted)]" />
+              <CardTitle>Daily Study Time (Last 7 Days)</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {dailyData.every((d) => d.minutes === 0) ? (
+              <EmptyState icon={Clock} title="No sessions this week" description="Start studying to see your daily chart" />
+            ) : (
+              <DailyChart data={dailyData} />
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>

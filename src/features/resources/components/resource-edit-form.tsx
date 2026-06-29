@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { createResource } from "@/features/resources/actions/resource-actions"
+import { updateResource } from "@/features/resources/actions/resource-actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -21,17 +21,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Plus } from "lucide-react"
+import { Pencil } from "lucide-react"
 import { toast } from "sonner"
 
-interface ResourceFormProps {
-  topicId: string
-  children?: React.ReactNode
+interface ResourceEditFormProps {
+  resource: {
+    id: string
+    title: string
+    url: string | null
+    type: string
+    description: string | null
+  }
 }
 
-export function ResourceForm({ topicId, children }: ResourceFormProps) {
+export function ResourceEditForm({ resource }: ResourceEditFormProps) {
   const [open, setOpen] = useState(false)
-  const [type, setType] = useState("WEBSITE")
+  const [type, setType] = useState(resource.type)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -41,7 +46,7 @@ export function ResourceForm({ topicId, children }: ResourceFormProps) {
     setError(null)
 
     const formData = new FormData(e.currentTarget)
-    const action = createResource.bind(null, topicId)
+    const action = updateResource.bind(null, resource.id)
 
     try {
       const result = await action(formData)
@@ -49,7 +54,7 @@ export function ResourceForm({ topicId, children }: ResourceFormProps) {
         setError(result.error)
         setPending(false)
       } else {
-        toast.success("Resource added")
+        toast.success("Resource updated")
         setOpen(false)
       }
     } catch (err) {
@@ -61,25 +66,20 @@ export function ResourceForm({ topicId, children }: ResourceFormProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {children ?? (
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-1" />
-            Resource
-          </Button>
-        )}
+        <button className="rounded-lg p-1.5 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-hover)] transition-colors">
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Resource</DialogTitle>
-          <DialogDescription>
-            Add a link, video, PDF, or other study resource
-          </DialogDescription>
+          <DialogTitle>Edit Resource</DialogTitle>
+          <DialogDescription>Update your study resource</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="title">Title</Label>
-              <Input id="title" name="title" placeholder="e.g. German Grammar Guide" required />
+              <Input id="title" name="title" defaultValue={resource.title} required />
             </div>
             <div className="space-y-2">
               <Label>Type</Label>
@@ -100,11 +100,11 @@ export function ResourceForm({ topicId, children }: ResourceFormProps) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="url">URL (optional)</Label>
-              <Input id="url" name="url" type="url" placeholder="https://..." />
+              <Input id="url" name="url" type="url" defaultValue={resource.url ?? ""} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description (optional)</Label>
-              <Input id="description" name="description" placeholder="Brief note about this resource" />
+              <Input id="description" name="description" defaultValue={resource.description ?? ""} />
             </div>
             {error && <p className="text-sm text-[var(--danger)] bg-[var(--danger-bg)] rounded-xl p-3">{error}</p>}
           </div>
@@ -113,7 +113,7 @@ export function ResourceForm({ topicId, children }: ResourceFormProps) {
               Cancel
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? "Adding..." : "Add"}
+              {pending ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </form>

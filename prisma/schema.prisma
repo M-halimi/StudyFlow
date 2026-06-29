@@ -44,6 +44,13 @@ enum ResourceType {
   NOTE
 }
 
+enum SessionType {
+  STUDY
+  WORK
+  BREAK
+  COFFEE
+}
+
 enum StudySessionStatus {
   ACTIVE
   PAUSED
@@ -62,6 +69,13 @@ enum AchievementType {
   FIRST_REVISION
   MASTER_TOPIC
   FIFTY_SESSIONS
+}
+
+enum NotificationType {
+  TASK_REMINDER
+  REVISION_ALERT
+  SESSION_UPDATE
+  SYSTEM
 }
 
 enum Mood {
@@ -91,6 +105,7 @@ model User {
   goals      Goal[]
   journals   Journal[]
   achievements UserAchievement[]
+  notifications Notification[]
   templates  Template[]
 
   @@map("users")
@@ -146,6 +161,8 @@ model UserSettings {
   weeklyGoalDays  Int      @default(5)
   theme           String   @default("system")
   emailNotifications Boolean @default(true)
+  notificationEnabled Boolean @default(true)
+  soundMode       String @default("important")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -236,6 +253,8 @@ model StudySession {
   id         String            @id @default(cuid())
   userId     String
   topicId    String?
+  sessionType SessionType      @default(STUDY)
+  title       String           @default("")
   startTime  DateTime
   endTime    DateTime?
   totalMinutes Int?
@@ -283,6 +302,7 @@ model Attachment {
 model Note {
   id        String   @id @default(cuid())
   topicId   String
+  title     String   @default("Untitled")
   content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -333,6 +353,22 @@ model UserAchievement {
 
   @@unique([userId, achievement])
   @@map("user_achievements")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String?
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
 }
 
 model Template {

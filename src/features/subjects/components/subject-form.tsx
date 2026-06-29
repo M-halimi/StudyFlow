@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import * as Icons from "lucide-react"
 import { Plus } from "lucide-react"
+import { toast } from "sonner"
 
 const COLORS = [
   "#6366f1", "#8b5cf6", "#a855f7", "#d946ef",
@@ -65,6 +66,7 @@ export function SubjectForm({ mode, defaultValues, children }: SubjectFormProps)
         setError(result.error)
         setPending(false)
       } else {
+        toast.success(mode === "create" ? "Subject created" : "Subject updated")
         setOpen(false)
       }
     } catch (err) {

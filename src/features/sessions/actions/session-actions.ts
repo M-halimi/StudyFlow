@@ -3,14 +3,18 @@
 import { prisma } from "@/lib/prisma"
 import { verifySession } from "@/lib/dal"
 import { revalidatePath } from "next/cache"
+import { formatDistanceToNow } from "date-fns"
+import { createNotification } from "@/features/notifications/actions/notification-actions"
 
-export async function startSession(topicId?: string) {
+export async function startSession(topicId?: string, sessionType?: string, title?: string) {
   const { userId } = await verifySession()
 
   const session = await prisma.studySession.create({
     data: {
       userId,
       topicId: topicId || null,
+      sessionType: (sessionType as any) || "STUDY",
+      title: title || "",
       startTime: new Date(),
       status: "ACTIVE",
     },
@@ -18,10 +22,10 @@ export async function startSession(topicId?: string) {
 
   revalidatePath("/timer")
   revalidatePath("/dashboard")
-  return { id: session.id }
+  return { id: session.id, sessionType: session.sessionType }
 }
 
-export async function endSession(id: string, totalMinutes: number) {
+export async function endSession(id: string, totalMinutes: number, notes?: string) {
   await verifySession()
 
   const session = await prisma.studySession.update({
@@ -30,6 +34,7 @@ export async function endSession(id: string, totalMinutes: number) {
       status: "COMPLETED",
       endTime: new Date(),
       totalMinutes,
+      notes: notes || null,
     },
   })
 
@@ -60,10 +65,79 @@ export async function endSession(id: string, totalMinutes: number) {
         interval: nextInterval,
       },
     })
+
+    createNotification(
+      session.userId,
+      "REVISION_ALERT",
+      `Revision scheduled for tomorrow`,
+      `Next revision for your topic is due ${formatDistanceToNow(nextDate, { addSuffix: true })}`,
+      `/subjects`,
+    )
   }
+
+  const hours = Math.floor(totalMinutes / 60)
+  const mins = Math.round(totalMinutes % 60)
+  const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`
+  const typeLabel = session.sessionType === "WORK" ? "Work" :
+    session.sessionType === "BREAK" ? "Break" :
+    session.sessionType === "COFFEE" ? "Coffee break" : "Study"
+
+  createNotification(
+    session.userId,
+    "SESSION_UPDATE",
+    `${typeLabel} session completed!`,
+    `You studied for ${durationStr}`,
+    "/timer",
+  )
 
   revalidatePath("/timer")
   revalidatePath("/dashboard")
+}
+
+export async function pauseSession(id: string) {
+  await verifySession()
+
+  await prisma.studySession.update({
+    where: { id },
+    data: { status: "PAUSED" },
+  })
+
+  revalidatePath("/timer")
+}
+
+export async function resumeSession(id: string) {
+  await verifySession()
+
+  await prisma.studySession.update({
+    where: { id },
+    data: { status: "ACTIVE" },
+  })
+
+  revalidatePath("/timer")
+}
+
+export async function duplicateSession(id: string) {
+  const { userId } = await verifySession()
+
+  const original = await prisma.studySession.findUnique({
+    where: { id },
+    select: { topicId: true, sessionType: true, title: true, totalMinutes: true },
+  })
+
+  if (!original || !original.totalMinutes) return
+
+  await prisma.studySession.create({
+    data: {
+      userId,
+      topicId: original.topicId,
+      sessionType: original.sessionType,
+      title: `${original.title || "Session"} (copy)`,
+      startTime: new Date(),
+      status: "ACTIVE",
+    },
+  })
+
+  revalidatePath("/timer")
 }
 
 export async function getActiveSession() {
