@@ -19,7 +19,7 @@ function getSessionToken(req: NextRequest): string | undefined {
   )
 }
 
-export default function proxy(req: NextRequest) {
+export default function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   if (publicRoutes.has(pathname) || pathname.startsWith(authApiPrefix)) {
