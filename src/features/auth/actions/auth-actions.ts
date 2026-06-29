@@ -5,7 +5,6 @@ import { signIn } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { AuthError } from "next-auth"
 import { z } from "zod"
-import { redirect } from "next/navigation"
 import { checkRateLimit, resetRateLimit } from "@/lib/rate-limit"
 import { headers } from "next/headers"
 
@@ -66,7 +65,7 @@ export async function register(prevState: unknown, formData: FormData) {
     return { error: "Something went wrong. Please try again." }
   }
 
-  redirect("/dashboard")
+  return { success: true }
 }
 
 export async function login(prevState: unknown, formData: FormData) {
@@ -91,5 +90,5 @@ export async function login(prevState: unknown, formData: FormData) {
     return { error: "Something went wrong" }
   }
 
-  redirect("/dashboard")
+  return { success: true }
 }

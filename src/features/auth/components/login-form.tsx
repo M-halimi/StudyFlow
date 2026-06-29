@@ -1,7 +1,8 @@
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { login } from "@/features/auth/actions/auth-actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,7 +10,14 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function LoginForm() {
+  const router = useRouter()
   const [state, formAction, pending] = useActionState(login, undefined)
+
+  useEffect(() => {
+    if (state?.success) {
+      router.push("/dashboard")
+    }
+  }, [state?.success, router])
 
   return (
     <Card>
